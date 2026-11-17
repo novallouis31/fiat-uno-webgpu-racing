@@ -37,9 +37,7 @@ The gearbox is automatic. A lap counts when the car crosses the start/finish lin
 
 ## Graphics quality
 
-The start menu has a **Car** selector (Fiat Uno Mille EP, Ferrari F40, Tesla Model 3) and a **Graphics quality** selector. Changing either saves the choice in `localStorage` and reloads the page. You can also force them with `?car=uno|f40|tesla` and `?quality=low|medium|high`.
-
-The F40 and Model 3 are procedural models built from the same mesh builder as the Uno, with their own paint, lighting, wheels and handling profile (mass, wheelbase, grip, power). The scripted lap, camera, sound and benchmark work with every car.
+The start menu has a **Graphics quality** selector. Changing it saves the choice in `localStorage` and reloads the page. You can also force a preset with `?quality=low|medium|high`.
 
 | | Low (default) | Medium | High |
 | --- | --- | --- | --- |
@@ -76,14 +74,13 @@ Useful files:
 | --- | --- |
 | `js/10_track.js` | Circuit layout, elevation and surface zones — a good place to start |
 | `js/30_car_*.js` | The Uno: body surface, paint, parts, roof rack and ladder |
-| `js/30_car_e_common.js`, `js/30_car_f_models.js` | Extra cars: shared assembly, F40 and Model 3 geometry and handling |
 | `js/31_world.js`, `js/32_props.js` | Terrain, track, guard-rails, grandstands, pits and gantry |
 | `js/33_veg_*.js` | Forest: trees, grass and distant impostors |
 | `js/40_vehicle.js` | Car physics |
 | `js/45_game.js` | Input, fixed-step loop, cameras and scripted lap |
 | `js/50_som.js`, `js/51_painel.js`, `js/52_ui.js` | Synthesized sound, dashboard, menus and benchmark |
 | `js/01_gpu.js` | WebGPU device and quality presets |
-| `wgsl/` | Shaders: materials (`mat_car.wgsl` for the Uno, `mat_sport.wgsl` for the extra cars), sky, shadows, post-processing |
+| `wgsl/` | Shaders: materials, sky, shadows, post-processing |
 | `shell.html` | Page shell, CSS and start menu |
 
 All comments and user-facing text are in English. Code identifiers, data keys and shader names are unchanged from the original so the upstream code stays easy to compare.

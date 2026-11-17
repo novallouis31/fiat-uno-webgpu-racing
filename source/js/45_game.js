@@ -45,7 +45,6 @@ const CARP = {
 const carObj = () => (typeof CAR !== 'undefined' ? CAR : CARP);
 
 function gameInit() {
-  if (typeof vehicleApplyCar === 'function' && typeof CAR !== 'undefined') vehicleApplyCar(CAR.phys);
   addEventListener('keydown', onKeyDown); addEventListener('keyup', onKeyUp); addEventListener('blur', onBlur);
   if (typeof REPLAY_B64 !== 'undefined') {
     const bin = atob(REPLAY_B64); let n = 0; for (let i = 1; i < bin.length; i += 2) n += bin.charCodeAt(i);

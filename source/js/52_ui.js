@@ -10,19 +10,6 @@ function uiInit() {
   try { const b = +localStorage.getItem('uno-melhor'); if (b > 20 && b < 600) LAP[2] = b; } catch (e) { /* no local storage: the best lap is only valid for this session */ }
   UI.b0.onclick = () => { if (UI.st === ST.INICIO) { sndStart(); uiSet(ST.JOGO); } else uiResume(); };
   UI.b1.onclick = () => benchStart();
-  const cs = $('car');
-  if (cs) {
-    cs.value = CAR ? CAR.id : 'uno';
-    cs.onchange = () => {
-      try { localStorage.setItem('uno-car', cs.value); } catch (e) { /* no local storage: use ?car= */ }
-      const url = new URL(location.href); url.searchParams.set('car', cs.value); location.href = url.href;
-    };
-  }
-  const title = $('title'), sub = $('subtitle');
-  if (title && sub && typeof CAR !== 'undefined' && CAR) {
-    title.textContent = CAR.id === 'uno' ? 'Uno with Ladder' : CAR.label;
-    sub.textContent = (CAR.id === 'uno' ? 'Fiat Uno Mille EP 1996' : CAR.label) + ' · race track';
-  }
   const qs = $('quality');
   if (qs) {
     qs.value = QUALITY_KEY;
