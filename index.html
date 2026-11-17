@@ -39,8 +39,8 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font:14px/1.4 -ap
 <div id="hint">W accelerates · S brakes/reverse · A/D steers · Space handbrake · C camera · R return to track</div>
 <canvas id="hg"></canvas><canvas id="ht"></canvas><canvas id="hs"></canvas><div id="tag"></div>
 <div id="ui"><div>
-<h1>Uno with Ladder</h1>
-<p class="sub">Fiat Uno Mille EP 1996 · race track</p>
+<h1 id="title">Uno with Ladder</h1>
+<p class="sub" id="subtitle">Fiat Uno Mille EP 1996 · race track</p>
 <div id="res"></div>
 <div class="cols">
 <div><h2>Keyboard</h2><table>
@@ -72,6 +72,12 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font:14px/1.4 -ap
 <tr><td colspan="2" style="font-weight:400;color:#ddd;opacity:.75;padding-top:.5em">Automatic transmission · the lap counts<br>when crossing the start/finish line</td></tr>
 </table></div>
 </div>
+<div class="qt"><label for="car">Car:</label>
+<select id="car">
+<option value="uno">Fiat Uno Mille EP</option>
+<option value="f40">Ferrari F40</option>
+<option value="tesla">Tesla Model 3</option>
+</select></div>
 <div class="qt"><label for="quality">Graphics quality:</label>
 <select id="quality">
 <option value="low">Low — laptop GPU (default)</option>
@@ -1208,6 +1214,71 @@ fn surf(in: V2F, ff: bool) -> Surface {
     s.albedo = in.col.rgb;
   }
   if (dot(bump, bump) > 0.0) { s.normal = normalize(s.normal + bump); }
+  return s;
+}
+`;
+WGSL["mat_sport"] = `// Generic materials for the extra cars (F40, Model 3).
+// id: 1 paint (vertex color) | 2 dark plastic | 3 rubber | 4 tire | 5 rim | 6 metal
+//     7 light (a<0.5 headlight, a>=0.5 taillight) | 8 interior | 9 carbon / dark texture | 10 accent
+// Body slot p0: x = brake light, y = reverse light, z = headlights. Wheel slot p0.x = |spin|.
+#include mesh_vert
+
+fn blurSpot(w: f32) -> f32 { return sat(w / 30.0); }
+
+fn surf(in: V2F, ff: bool) -> Surface {
+  var s = surfDefault(normalize(in.nrm));
+  let id = matId(in.mat); let pa = matA(in.mat);
+  let lp = in.ext.xyz;
+  s.albedo = in.col.rgb;
+  switch (id) {
+    case 1u: {   // clear-coated metallic paint, color comes from the vertex
+      let nO = normalize((vec4f(s.normal, 0.0) * O.model).xyz);
+      let wt = abs(nO) / (abs(nO.x) + abs(nO.y) + abs(nO.z));
+      let fl = textureSample(tNoise, sLin, lp.zy * 21.0).a * wt.x
+             + textureSample(tNoise, sLin, lp.xz * 21.0).a * wt.y
+             + textureSample(tNoise, sLin, lp.xy * 21.0).a * wt.z - 0.5;
+      s.albedo = in.col.rgb * (1.0 + 0.06 * fl);
+      s.metal = select(0.5, 0.72, pa > 0.5);
+      s.rough = 0.28 + 0.05 * fl;
+      s.coat = 1.0;
+    }
+    case 2u: { s.albedo = in.col.rgb * 0.9; s.rough = 0.88; s.metal = 0.05; s.ao = 0.55; }
+    case 3u: { s.albedo = in.col.rgb; s.rough = 0.86; s.metal = 0.0; }
+    case 4u: {
+      let r = length(lp.xy);
+      let blur = blurSpot(O.p0.x);
+      let rib = 0.5 + 0.5 * sin(atan2(lp.y, lp.x) * 96.0);
+      s.albedo = in.col.rgb * (0.75 + 0.25 * rib * (1.0 - blur));
+      s.rough = 0.93; s.metal = 0.0; s.ao = 0.5;
+    }
+    case 5u: {
+      let r = length(lp.xy);
+      let a = atan2(lp.y, lp.x);
+      let spoke = 0.5 + 0.5 * cos(a * select(10.0, 5.0, pa > 0.5));
+      let ring = 1.0 - smoothstep(0.008, 0.016, abs(r - 0.26));
+      s.albedo = in.col.rgb * (0.8 + 0.32 * spoke * (1.0 - blurSpot(O.p0.x)) + 0.2 * ring);
+      s.metal = 0.85; s.rough = select(0.24, 0.38, pa > 0.5); s.coat = 0.2;
+    }
+    case 6u: { s.metal = 0.9; s.rough = select(0.16, 0.42, pa > 0.5); }
+    case 7u: {   // headlight / taillight
+      s.rough = 0.22; s.coat = 0.6;
+      if (pa < 0.5) {
+        s.albedo = in.col.rgb * 0.7;
+        s.emissive = 0.05 + O.p0.z * 0.85;
+      } else {
+        let br = sat(O.p0.x);
+        s.albedo = in.col.rgb * mix(0.16, 0.6, br);
+        s.emissive = mix(0.04, 0.9, br);
+      }
+    }
+    case 8u: { s.albedo = in.col.rgb * 0.85; s.rough = 0.92; s.ao = 0.5; }
+    case 9u: {   // carbon / ribbed dark trim
+      let w = sin(lp.x * 520.0) * sin(lp.z * 520.0);
+      s.albedo = in.col.rgb * (0.7 + 0.12 * w); s.rough = 0.5; s.metal = 0.25;
+    }
+    case 10u: { s.albedo = in.col.rgb; s.rough = 0.3; s.metal = 0.4; s.coat = 0.7; }
+    default: {}
+  }
   return s;
 }
 `;
@@ -4842,8 +4913,12 @@ function carBuildSteer(mb) {
 }
 
 // ---- 30_car_d_main.js
-// Car assembly, contract with the game (CAR) and standalone viewer (?scene=car).
-const CAR = {
+// Car registry and assembly. CAR is the active model; the Uno is the default.
+// Extra models register themselves in CAR_MODELS from 30_car_e_* / 30_car_f_*.
+const CAR_MODELS = {};
+let CAR = null;
+const CAR_ID = Q.get('car') || (() => { try { return localStorage.getItem('uno-car'); } catch (e) { return null; } })() || 'uno';
+const UNO = {
   wheelbase: 2.362, trackF: 1.34, trackR: 1.30, wheelR: 0.281,
   hubs: [[1.181, 0.281, -0.67], [1.181, 0.281, 0.67], [-1.181, 0.281, -0.65], [-1.181, 0.281, 0.65]],
   slotBody: 0, slotWheel: [0, 0, 0, 0], slotSteer: 0,
@@ -4900,13 +4975,222 @@ const CAR = {
     m4mul(t, CAR.steerMat, t2); m4mul(objModel(CAR.slotSteer), body, t);
   },
 };
+CAR_MODELS.uno = UNO;
+// Selects the active car and applies its physics profile. Safe to call before
+// vehicle physics is loaded: the profile is then applied by gameInit().
+function carSelect(id) {
+  CAR = CAR_MODELS[id] || UNO;
+  if (typeof vehicleApplyCar === 'function') vehicleApplyCar(CAR.phys);
+  return CAR;
+}
 BUILD.push(async () => {
+  carSelect(CAR_ID);
   CAR.build();
   if (GAME.mode === 'car') {
     buildTestGround();
     GAME.init = () => { setCamera(3.3, 1.25, -3.6, 0.1, 0.62, 0, 0.5); R.cube.pos.set([0, 0.9, 0]); };
     window.__car = CAR;
   }
+});
+
+// ---- 30_car_e_common.js
+// Shared assembly for the extra procedurally generated cars.
+// All geometry uses the standard MeshBuilder vertex format and mat_sport.wgsl.
+const XMAT = { PAINT: 1, PLASTIC: 2, RUBBER: 3, TIRE: 4, RIM: 5, METAL: 6, LIGHT: 7, INTERIOR: 8, CARBON: 9, ACCENT: 10 };
+
+// Linear interpolation of a [x, halfWidth, bottom, top] car profile.
+function xProfile(prof, t) {
+  const x = prof[0][0] + t * (prof[prof.length - 1][0] - prof[0][0]);
+  let i = 0;
+  while (i < prof.length - 2 && prof[i + 1][0] < x) i++;
+  const a = prof[i], b = prof[i + 1];
+  const f = clamp((x - a[0]) / ((b[0] - a[0]) || 1), 0, 1), s = f * f * (3 - 2 * f);
+  return [x, lerp(a[1], b[1], s), lerp(a[2], b[2], s), lerp(a[3], b[3], s)];
+}
+
+// Smooth closed car body from a profile. u = front->rear, v = around the section.
+function xShell(mb, prof, paint) {
+  mb.mat(XMAT.PAINT).color(paint[0], paint[1], paint[2]);
+  mb.patch((u, v, o) => {
+    const p = xProfile(prof, u), a = v * TAU, ca = Math.cos(a), sa = Math.sin(a);
+    o[0] = p[0];
+    o[1] = p[2] + (p[3] - p[2]) * (0.5 + 0.5 * sa);
+    o[2] = p[1] * ca * (0.94 + 0.06 * sa);
+  }, 0, 1, 0, 1, { nu: 64, nv: 32, uv: (u, v) => [u, v] });
+}
+
+// Simple side + windshield/rear-window glazing (translucent pass, material 0).
+function xGlass(gl, prof, t0, t1, belt, tint) {
+  gl.mat(0).color(tint[0], tint[1], tint[2], 1);
+  for (const side of [-1, 1]) {
+    const p0 = xProfile(prof, t0), p1 = xProfile(prof, t1);
+    const z0 = side * (p0[1] + 0.012), z1 = side * (p1[1] + 0.012);
+    gl.quad(p0[0], p0[2] + (p0[3] - p0[2]) * belt, z0, p1[0], p1[2] + (p1[3] - p1[2]) * belt, z1,
+      p1[0], p1[3] - 0.02, z1, p0[0], p0[3] - 0.02, z0, 0, 0, 1, 1);
+  }
+  for (const t of [t0, t1]) {
+    const p = xProfile(prof, t), y0 = p[2] + (p[3] - p[2]) * belt, y1 = p[3] - 0.015, w = p[1] * 0.74;
+    gl.quad(p[0], y0, -w, p[0], y1, -w * 0.8, p[0], y1, w * 0.8, p[0], y0, w, 0, 0, 1, 1);
+  }
+}
+
+// Wheel: tire + rim + spokes. Local axis Z (matching the game's Rz(spin)).
+function xWheel(mb, R, spokes, dark) {
+  const hw = 0.082, seg = 48;
+  mb.push(m4rotY(m4(), -PI / 2));
+  mb.mat(XMAT.TIRE).color(0.024, 0.024, 0.025);
+  mb.lathe([[-hw * 0.8, R * 0.62], [-hw, R * 0.8], [-hw, R * 0.97], [-hw * 0.9, R],
+    [hw * 0.9, R], [hw, R * 0.97], [hw, R * 0.8], [hw * 0.8, R * 0.62]], seg);
+  mb.mat(XMAT.RIM, dark ? 1 : 0).color(dark ? 0.16 : 0.58, dark ? 0.17 : 0.6, dark ? 0.19 : 0.63);
+  mb.lathe([[-hw * 0.86, 0.015], [-hw * 0.86, R * 0.69], [hw * 0.86, R * 0.69], [hw * 0.86, 0.015]], 40);
+  for (let i = 0; i < spokes; i++) {
+    mb.push(m4rotZ(m4(), (i / spokes) * TAU));
+    mb.rbox(0, R * 0.38, hw * 0.86, R * 0.1, R * 0.52, 0.016, 0.006, 2);
+    mb.pop();
+  }
+  mb.mat(XMAT.METAL, 1).color(0.5, 0.52, 0.55);
+  mb.lathe([[hw * 0.9, 0.02], [hw * 0.95, R * 0.12]], 20);
+  mb.pop();
+}
+
+// Creates and registers a car model from a declarative config.
+function extraCar(cfg) {
+  const front = cfg.a, rear = cfg.b;
+  const M = {
+    id: cfg.id, name: cfg.name, label: cfg.label, phys: cfg.phys, bodyFn: cfg.body,
+    wheelbase: cfg.wheelbase, trackF: cfg.trackF, trackR: cfg.trackR, wheelR: cfg.wheelR,
+    hubs: [[front, cfg.wheelR, -cfg.trackF / 2], [front, cfg.wheelR, cfg.trackF / 2],
+      [-rear, cfg.wheelR, -cfg.trackR / 2], [-rear, cfg.wheelR, cfg.trackR / 2]],
+    slotBody: 0, slotWheel: [0, 0, 0, 0], slotSteer: 0,
+    steerMat: m4(), tris: 0, _t: m4(), _t2: m4(), _t3: m4(), _z4: new Float32Array(4),
+    set: null, glass: null, fam: null, inp: new Float64Array(2),
+    build() {
+      const fam = M.fam = mkFamily('car_' + cfg.id, { src: 'mat_sport', noCube: true });
+      M.slotBody = objSlot();
+      for (let i = 0; i < 4; i++) M.slotWheel[i] = objSlot();
+      M.slotSteer = objSlot();
+      const set = M.set = new MeshSet(fam), glass = M.glass = new GlassSet();
+      const mb = new MeshBuilder(1 << 17), gl = new MeshBuilder(1 << 14);
+      cfg.body(mb, gl);
+      M.tris = (mb.ni + gl.ni) / 3;
+      set.add(mb.upload(), M.slotBody, 3);
+      glass.add_(gl.upload(), M.slotBody);
+      const w = new MeshBuilder(1 << 15);
+      xWheel(w, cfg.wheelR, cfg.spokes, cfg.darkRims);
+      const wm = w.upload(); M.tris += 4 * w.ni / 3;
+      for (let i = 0; i < 4; i++) set.add(wm, M.slotWheel[i], 3);
+      R.drawables.push({ draw(pass, ctx) { if (ctx.kind === KIND.SHADOW && ctx.cascade === 3) return; set.draw(pass, ctx); } });
+      R.transparents.push(glass);
+      m4ident(M._t); M.place(M._t, M._z4, M._z4); M.place(M._t, M._z4, M._z4);
+    },
+    place(body, spin, susp) {
+      const steer = M.inp[0], t = M._t2;
+      objPrev(M.slotBody).set(objModel(M.slotBody)); objModel(M.slotBody).set(body);
+      for (let i = 0; i < 4; i++) {
+        const s = M.slotWheel[i], h = M.hubs[i], left = (i & 1) === 0;
+        objPrev(s).set(objModel(s));
+        const ang = -(i < 2 ? steer : 0) + (left ? PI : 0), c = Math.cos(ang), sn = Math.sin(ang);
+        const g = left ? spin[i] : -spin[i], cg = Math.cos(g), sg = Math.sin(g);
+        t[0] = c * cg; t[1] = sg; t[2] = -sn * cg; t[3] = 0;
+        t[4] = -c * sg; t[5] = cg; t[6] = sn * sg; t[7] = 0;
+        t[8] = sn; t[9] = 0; t[10] = c; t[11] = 0;
+        t[12] = h[0]; t[13] = h[1] + susp[i]; t[14] = h[2]; t[15] = 1;
+        m4mul(objModel(s), body, t);
+      }
+      objPrev(M.slotSteer).set(objModel(M.slotSteer));
+      objModel(M.slotSteer).set(body);
+    },
+  };
+  CAR_MODELS[cfg.id] = M;
+  return M;
+}
+
+// ---- 30_car_f_models.js
+// Extra cars: Ferrari F40 and Tesla Model 3. Procedural, no external assets.
+// Both use the shared assembly in 30_car_e_common.js and mat_sport.wgsl.
+
+// ---------------------------------------------------------------------------
+// Ferrari F40 — low red wedge, rear wing, exposed wheels, sparse trim.
+// ---------------------------------------------------------------------------
+const F40_PROFILE = [
+  [-2.15, 0.44, 0.34, 0.80], [-1.85, 0.80, 0.28, 1.00], [-1.25, 0.94, 0.26, 1.07],
+  [-0.55, 0.97, 0.25, 1.12], [0.25, 0.96, 0.24, 1.05], [0.95, 0.88, 0.25, 0.79],
+  [1.65, 0.74, 0.26, 0.58], [2.25, 0.40, 0.30, 0.45]
+];
+function f40Build(mb, gl) {
+  xShell(mb, F40_PROFILE, [0.60, 0.025, 0.025]);
+  xGlass(gl, F40_PROFILE, 0.32, 0.62, 0.52, [0.20, 0.22, 0.22]);
+  // carbon rear wing: endplates, uprights and a wide blade
+  mb.mat(XMAT.CARBON).color(0.045, 0.045, 0.05);
+  for (const z of [-0.68, 0.68]) {
+    mb.rbox(-1.82, 1.05, z, 0.07, 0.44, 0.035, 0.01, 2);
+    mb.rbox(-1.86, 1.32, z, 0.38, 0.30, 0.035, 0.012, 2);
+  }
+  mb.rbox(-1.86, 1.36, 0, 0.52, 0.055, 1.52, 0.02, 2);
+  // front splitter, side skirts and rear diffuser
+  mb.mat(XMAT.PLASTIC).color(0.035, 0.035, 0.038);
+  mb.rbox(2.14, 0.22, 0, 0.34, 0.05, 1.54, 0.015, 2);
+  for (const z of [-0.92, 0.92]) mb.rbox(-0.05, 0.24, z, 2.05, 0.10, 0.13, 0.02, 2);
+  mb.rbox(-2.08, 0.30, 0, 0.22, 0.16, 1.15, 0.02, 2);
+  // quad headlights and narrow taillights
+  mb.mat(XMAT.LIGHT, 0).color(0.92, 0.94, 1.0);
+  for (const z of [-0.56, -0.30, 0.30, 0.56]) mb.rbox(2.17, 0.63, z, 0.055, 0.13, 0.19, 0.03, 2);
+  mb.mat(XMAT.LIGHT, 1).color(0.75, 0.03, 0.02);
+  for (const z of [-0.66, 0.66]) mb.rbox(-2.17, 0.80, z, 0.05, 0.075, 0.32, 0.02, 2);
+  // rear engine grille slats
+  mb.mat(XMAT.CARBON).color(0.03, 0.03, 0.032);
+  for (let i = 0; i < 7; i++) mb.rbox(-2.19, 0.46 + i * 0.048, 0, 0.035, 0.018, 1.10, 0.006, 1);
+  // mirrors
+  mb.mat(XMAT.PAINT).color(0.60, 0.025, 0.025);
+  for (const z of [-0.99, 0.99]) mb.rbox(0.62, 0.94, z, 0.20, 0.09, 0.12, 0.03, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Tesla Model 3 — smooth white fastback, glass roof, light bars, aero wheels.
+// ---------------------------------------------------------------------------
+const TESLA_PROFILE = [
+  [-2.35, 0.52, 0.31, 0.63], [-2.05, 0.84, 0.28, 0.88], [-1.55, 0.91, 0.25, 1.08],
+  [-0.85, 0.93, 0.24, 1.39], [0.10, 0.94, 0.23, 1.44], [0.85, 0.93, 0.24, 1.28],
+  [1.55, 0.88, 0.26, 0.93], [2.05, 0.74, 0.28, 0.63], [2.35, 0.44, 0.30, 0.52]
+];
+function teslaBuild(mb, gl) {
+  xShell(mb, TESLA_PROFILE, [0.86, 0.87, 0.86]);
+  xGlass(gl, TESLA_PROFILE, 0.26, 0.72, 0.54, [0.16, 0.19, 0.20]);
+  // panoramic glass roof
+  gl.mat(0).color(0.14, 0.17, 0.18, 1);
+  gl.quad(-0.95, 1.44, -0.62, 0.85, 1.44, -0.62, 0.85, 1.44, 0.62, -0.95, 1.44, 0.62, 0, 0, 1, 1);
+  // full-width light bars
+  mb.mat(XMAT.LIGHT, 0).color(0.88, 0.92, 1.0);
+  mb.rbox(2.34, 0.66, 0, 0.055, 0.055, 1.34, 0.02, 2);
+  mb.mat(XMAT.LIGHT, 1).color(0.72, 0.02, 0.02);
+  mb.rbox(-2.34, 0.80, 0, 0.055, 0.06, 1.42, 0.02, 2);
+  // lower intake and diffuser
+  mb.mat(XMAT.PLASTIC).color(0.05, 0.052, 0.055);
+  mb.rbox(2.33, 0.40, 0, 0.05, 0.12, 1.10, 0.02, 2);
+  mb.rbox(-2.32, 0.34, 0, 0.06, 0.10, 1.20, 0.02, 2);
+  // flush door handles and side mirror cameras
+  mb.mat(XMAT.ACCENT).color(0.72, 0.74, 0.75);
+  for (const z of [-0.95, 0.95]) for (const x of [-0.72, 0.62]) mb.rbox(x, 0.84, z, 0.13, 0.025, 0.02, 0.008, 1);
+  mb.mat(XMAT.PAINT).color(0.86, 0.87, 0.86);
+  for (const z of [-1.0, 1.0]) mb.rbox(0.72, 0.95, z, 0.17, 0.06, 0.10, 0.025, 2);
+}
+
+extraCar({
+  id: 'f40', name: 'f40', label: 'Ferrari F40',
+  wheelbase: 2.45, a: 1.18, b: 1.27, trackF: 1.49, trackR: 1.55, wheelR: 0.32,
+  spokes: 5, darkRims: true, body: f40Build,
+  phys: { m: 1100, Izz: 1480, L: 2.45, a: 1.18, b: 1.27, tw: 1.52, h: 0.42, R: 0.32,
+    mu: 1.55, B: 10.0, C: 1.4, gears: [3.1, 2.0, 1.45, 1.10, 0.88], final: 3.7, rev: 3.4,
+    eff: 0.9, cdA: 0.48, crr: 0.013, brakeF: 0.62, halfW: 0.88, front: 2.0, rear: 1.8, torque: 1.45 }
+});
+
+extraCar({
+  id: 'tesla', name: 'tesla', label: 'Tesla Model 3',
+  wheelbase: 2.87, a: 1.34, b: 1.53, trackF: 1.58, trackR: 1.58, wheelR: 0.34,
+  spokes: 10, darkRims: true, body: teslaBuild,
+  phys: { m: 1750, Izz: 2100, L: 2.87, a: 1.34, b: 1.53, tw: 1.58, h: 0.50, R: 0.34,
+    mu: 1.38, B: 9.5, C: 1.35, gears: [3.5, 2.1, 1.40, 1.00, 0.78], final: 4.0, rev: 3.5,
+    eff: 0.92, cdA: 0.55, crr: 0.010, brakeF: 0.60, halfW: 0.86, front: 2.1, rear: 1.9, torque: 1.8 }
 });
 
 // ---- 31_world.js
@@ -6783,6 +7067,8 @@ const VP = {
   gears: [3.91, 2.16, 1.48, 1.12, 0.9], final: 4.07, rev: 3.9, eff: 0.9,
   cdA: 0.62, crr: 0.014, brakeF: 0.64, halfW: 0.78, front: 1.92, rear: 1.72,
 };
+// Per-car engine multiplier (set by vehicleApplyCar for the extra models).
+const VTUNE = { torque: 1 };
 const VEH = {
   x: 0, z: 0, yaw: 0, vx: 0, vy: 0, r: 0,                  // CG position in the plane, heading, body-frame velocities (forward, right), yaw
   steer: 0, rpm: 900, gear: 1, throttle: 0, brake: 0, hand: 0,
@@ -6801,8 +7087,18 @@ const _vl = new Float64Array(4), _vp = new Float64Array(5);
 // local wheel positions (x forward, z right): FL, FR, RL, RR
 const WLX = [VP.a, VP.a, -VP.b, -VP.b], WLZ = [-VP.tw / 2, VP.tw / 2, -VP.tw / 2, VP.tw / 2];
 
-function engineTorque(rpm) { // torque curve (N·m): a much livelier Mille than the stock one
-  const x = rpm / 1000; const t = 180 + 118 * Math.sin(clamp((x - 0.6) / 5.4, 0, 1) * PI) - Math.max(0, x - 6.0) * 110;
+// Applies a car's physics profile and refreshes the derived wheel coordinates.
+// Called at build time and again from gameInit(), so it is safe in both orders.
+function vehicleApplyCar(phys) {
+  if (!phys) { VTUNE.torque = 1; return; }
+  Object.assign(VP, phys);
+  WLX[0] = VP.a; WLX[1] = VP.a; WLX[2] = -VP.b; WLX[3] = -VP.b;
+  WLZ[0] = -VP.tw / 2; WLZ[1] = VP.tw / 2; WLZ[2] = -VP.tw / 2; WLZ[3] = VP.tw / 2;
+  VTUNE.torque = phys.torque || 1;
+}
+
+function engineTorque(rpm) { // torque curve (N·m), scaled by the selected car
+  const x = rpm / 1000; const t = (180 + 118 * Math.sin(clamp((x - 0.6) / 5.4, 0, 1) * PI)) * VTUNE.torque - Math.max(0, x - 6.0) * 110;
   return Math.max(0, t);
 }
 // ground query without numbers via argument/return: input _gq[0]=x, _gq[1]=z; output _gq[8]=height; returns the zone (integer).
@@ -6885,7 +7181,7 @@ function vehicleStep(keys) {
   }
   const rpmE = Math.min(6700, Math.max(900, Math.max(rpm, 1100 + throttle * 1900 * Math.min(1, Math.max(0, 1 - speed / 6)))));   // clutch slipping on launch
   V.rpm += (rpmE - V.rpm) * 0.25;
-  const ex = rpmE / 1000, ek = (ex - 0.6) / 5.4, eT = 180 + 118 * Math.sin((ek < 0 ? 0 : ek > 1 ? 1 : ek) * PI) - (ex > 6 ? (ex - 6) * 110 : 0);   // = engineTorque(rpmE), inlined
+  const ex = rpmE / 1000, ek = (ex - 0.6) / 5.4, eT = (180 + 118 * Math.sin((ek < 0 ? 0 : ek > 1 ? 1 : ek) * PI)) * VTUNE.torque - (ex > 6 ? (ex - 6) * 110 : 0);   // = engineTorque(rpmE), inlined
   let Tdrive = throttle * (eT > 0 ? eT : 0) * ratio * P.eff;                  // total torque at the front wheels
   if (rpm > 6500) Tdrive = 0;
   if (reverse && V.vx < -11) Tdrive = 0;
@@ -7190,6 +7486,7 @@ const CARP = {
 const carObj = () => (typeof CAR !== 'undefined' ? CAR : CARP);
 
 function gameInit() {
+  if (typeof vehicleApplyCar === 'function' && typeof CAR !== 'undefined') vehicleApplyCar(CAR.phys);
   addEventListener('keydown', onKeyDown); addEventListener('keyup', onKeyUp); addEventListener('blur', onBlur);
   if (typeof REPLAY_B64 !== 'undefined') {
     const bin = atob(REPLAY_B64); let n = 0; for (let i = 1; i < bin.length; i += 2) n += bin.charCodeAt(i);
@@ -7936,6 +8233,19 @@ function uiInit() {
   try { const b = +localStorage.getItem('uno-melhor'); if (b > 20 && b < 600) LAP[2] = b; } catch (e) { /* no local storage: the best lap is only valid for this session */ }
   UI.b0.onclick = () => { if (UI.st === ST.INICIO) { sndStart(); uiSet(ST.JOGO); } else uiResume(); };
   UI.b1.onclick = () => benchStart();
+  const cs = $('car');
+  if (cs) {
+    cs.value = CAR ? CAR.id : 'uno';
+    cs.onchange = () => {
+      try { localStorage.setItem('uno-car', cs.value); } catch (e) { /* no local storage: use ?car= */ }
+      const url = new URL(location.href); url.searchParams.set('car', cs.value); location.href = url.href;
+    };
+  }
+  const title = $('title'), sub = $('subtitle');
+  if (title && sub && typeof CAR !== 'undefined' && CAR) {
+    title.textContent = CAR.id === 'uno' ? 'Uno with Ladder' : CAR.label;
+    sub.textContent = (CAR.id === 'uno' ? 'Fiat Uno Mille EP 1996' : CAR.label) + ' · race track';
+  }
   const qs = $('quality');
   if (qs) {
     qs.value = QUALITY_KEY;
