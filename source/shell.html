@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Uno with Ladder — Race Track</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font:14px/1.4 -apple-system,Helvetica,Arial,sans-serif;color:#ddd}
+#c{position:absolute;inset:0;margin:auto;width:100vw;height:100vh;display:block;object-fit:contain}
+#msg{position:absolute;left:0;right:0;top:45%;text-align:center;letter-spacing:.08em;white-space:pre-wrap}
+#hint{position:absolute;left:14px;bottom:10px;opacity:.75;text-shadow:0 1px 2px #000;transition:opacity 1.5s;pointer-events:none}
+#hg,#ht,#hs,#tag,#ui{display:none;position:absolute;pointer-events:none}
+#hg{right:1.6vh;bottom:1.6vh}
+#ht{left:50%;top:1.6vh;transform:translateX(-50%)}
+#hs{left:1.6vh;top:1.6vh}
+#tag{left:50%;bottom:2.2vh;transform:translateX(-50%);padding:.45em 1.1em;border-radius:1.2em;background:rgba(9,11,14,.62);color:#fff;white-space:nowrap}
+#ui{inset:0;pointer-events:auto;align-items:center;justify-content:center;background:rgba(6,8,10,.62);font-size:clamp(11px,1.72vh,17px)}
+#ui.ini{background:linear-gradient(rgba(6,8,10,.5),rgba(6,8,10,.82))}
+#ui>div{max-width:94vw;max-height:96vh;overflow:auto;padding:1.4em 2.2em;box-sizing:border-box;text-align:center}
+#ui h1{margin:0;font-size:3.1em;line-height:1.1;letter-spacing:.02em;color:#fff}
+#ui .sub{margin:.3em 0 1.3em;opacity:.8;letter-spacing:.12em;text-transform:uppercase;font-size:.9em}
+#ui h2{margin:0 0 .5em;font-size:1.05em;letter-spacing:.1em;text-transform:uppercase;color:#ff8a6a}
+#ui .cols{display:flex;gap:3.2em;justify-content:center;flex-wrap:wrap;text-align:left}
+#ui table{border-collapse:collapse}
+#ui td,#ui th{padding:.13em .7em .13em 0;font-weight:400;text-align:left}
+#ui td:first-child{color:#fff;font-weight:600;white-space:nowrap;padding-right:1.3em}
+#res{display:none;margin:0 0 1.4em;padding:1em 1.4em;border-radius:.8em;background:rgba(255,255,255,.07)}
+#res table{margin:0 auto}#res th,#res td{padding:.2em 1.1em;text-align:right}#res td{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}#res p{margin:.7em 0 0}
+#ui .bt{margin-top:1.5em}
+#ui .qt{margin-top:1.1em;opacity:.85}#ui .qt select{font:inherit;margin:0 .4em;background:#20262e;color:#fff;border:1px solid #555;border-radius:.3em;padding:.25em .5em}#ui .qt span{font-size:.85em;opacity:.7}
+#ui button{font:inherit;font-size:1.15em;font-weight:600;color:#fff;background:#d8351c;border:0;border-radius:.5em;padding:.6em 2em;margin:0 .4em;cursor:pointer}
+#ui button+button{background:rgba(255,255,255,.16)}
+#ui button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="msg">loading…</div>
+<div id="hint">W accelerates · S brakes/reverse · A/D steers · Space handbrake · C camera · R return to track</div>
+<canvas id="hg"></canvas><canvas id="ht"></canvas><canvas id="hs"></canvas><div id="tag"></div>
+<div id="ui"><div>
+<h1>Uno with Ladder</h1>
+<p class="sub">Fiat Uno Mille EP 1996 · race track</p>
+<div id="res"></div>
+<div class="cols">
+<div><h2>Keyboard</h2><table>
+<tr><td>W or ↑</td><td>accelerate</td></tr>
+<tr><td>S or ↓</td><td>brake and reverse</td></tr>
+<tr><td>A D or ← →</td><td>steer</td></tr>
+<tr><td>Space</td><td>handbrake</td></tr>
+<tr><td>C</td><td>change camera</td></tr>
+<tr><td>V (hold)</td><td>look back</td></tr>
+<tr><td>R</td><td>return car to track</td></tr>
+<tr><td>Esc</td><td>pause and open this menu</td></tr>
+</table></div>
+<div><h2>Controller</h2><table>
+<tr><td>Right trigger</td><td>accelerate</td></tr>
+<tr><td>Left trigger</td><td>brake and reverse</td></tr>
+<tr><td>Left stick</td><td>steer</td></tr>
+<tr><td>A</td><td>handbrake</td></tr>
+<tr><td>Y</td><td>change camera</td></tr>
+<tr><td>RB (hold)</td><td>look back</td></tr>
+<tr><td>X</td><td>return car to track</td></tr>
+<tr><td>Start</td><td>open this menu</td></tr>
+</table></div>
+<div><h2>Tools</h2><table>
+<tr><td>M</td><td>toggle sound</td></tr>
+<tr><td>H</td><td>performance statistics</td></tr>
+<tr><td>B</td><td>benchmark (60 s scripted lap)</td></tr>
+<tr><td>F</td><td>watch the scripted lap</td></tr>
+<tr><td>1 to 6</td><td>fixed camera poses</td></tr>
+<tr><td colspan="2" style="font-weight:400;color:#ddd;opacity:.75;padding-top:.5em">Automatic transmission · the lap counts<br>when crossing the start/finish line</td></tr>
+</table></div>
+</div>
+<div class="qt"><label for="quality">Graphics quality:</label>
+<select id="quality">
+<option value="low">Low — laptop GPU (default)</option>
+<option value="medium">Medium</option>
+<option value="high">High — desktop / M4 Max</option>
+</select><span>Changes reload the page.</span></div>
+<div class="bt"><button id="b0">Start</button><button id="b1">Benchmark</button></div>
+</div></div>
+<script>
+/*__CODE__*/
+</script>
+</body>
+</html>
