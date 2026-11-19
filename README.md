@@ -37,7 +37,7 @@ The gearbox is automatic. A lap counts when the car crosses the start/finish lin
 
 ## Graphics quality
 
-The start menu has a **Car** selector (Fiat Uno Mille EP / Tesla Model 3) and a **Graphics quality** selector. Changing either saves the choice in `localStorage` and reloads the page. You can also force them with `?car=uno|tesla` and `?quality=low|medium|high`. The Tesla uses its own handling profile; the scripted lap, cameras, sound and benchmark work with both cars.
+The start menu has a **Car** selector (Fiat Uno Mille EP / Ferrari F40 / Tesla Model 3) and a **Graphics quality** selector. Changing either saves the choice in `localStorage` and reloads the page. You can also force them with `?car=uno|f40|tesla` and `?quality=low|medium|high`. The F40 and Tesla are converted CC/MIT 3D models with baked vertex colours (see CREDITS.md) and their own handling profiles; the scripted lap, cameras, sound and benchmark work with every car.
 
 | | Low (default) | Medium | High |
 | --- | --- | --- | --- |
