@@ -1,5 +1,9 @@
-// Car assembly, contract with the game (CAR) and standalone viewer (?scene=car).
-const CAR = {
+﻿// Car registry and assembly. CAR is the active model; the Uno is the default.
+// Extra models register themselves in CAR_MODELS from 30_car_e_* / 30_car_f_*.
+const CAR_MODELS = {};
+let CAR = null;
+const CAR_ID = Q.get('car') || (() => { try { return localStorage.getItem('uno-car'); } catch (e) { return null; } })() || 'uno';
+const UNO = {
   wheelbase: 2.362, trackF: 1.34, trackR: 1.30, wheelR: 0.281,
   hubs: [[1.181, 0.281, -0.67], [1.181, 0.281, 0.67], [-1.181, 0.281, -0.65], [-1.181, 0.281, 0.65]],
   slotBody: 0, slotWheel: [0, 0, 0, 0], slotSteer: 0,
@@ -41,7 +45,7 @@ const CAR = {
     for (let i = 0; i < 4; i++) {
       const s = CAR.slotWheel[i], h = CAR.hubs[i], left = (i & 1) === 0;
       objPrev(s).set(objModel(s));
-      // wheel: T(hub + suspension) · Ry(steering [+π to the left]) · Rz(spin)
+      // wheel: T(hub + suspension) ┬À Ry(steering [+¤Ç to the left]) ┬À Rz(spin)
       const a = -(i < 2 ? steer : 0) + (left ? PI : 0), c = Math.cos(a), sn = Math.sin(a);
       const g = left ? spin[i] : -spin[i], cg = Math.cos(g), sg = Math.sin(g);
       // Ry(a) * Rz(g)
@@ -56,7 +60,16 @@ const CAR = {
     m4mul(t, CAR.steerMat, t2); m4mul(objModel(CAR.slotSteer), body, t);
   },
 };
+CAR_MODELS.uno = UNO;
+// Selects the active car and applies its physics profile. Safe to call before
+// vehicle physics is loaded: the profile is then applied by gameInit().
+function carSelect(id) {
+  CAR = CAR_MODELS[id] || UNO;
+  if (typeof vehicleApplyCar === 'function') vehicleApplyCar(CAR.phys);
+  return CAR;
+}
 BUILD.push(async () => {
+  carSelect(CAR_ID);
   CAR.build();
   if (GAME.mode === 'car') {
     buildTestGround();

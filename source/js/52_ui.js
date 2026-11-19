@@ -1,4 +1,4 @@
-// Interface of the game opened by one person (GAME.ui): start screen, pause, benchmark, scripted lap to watch,
+﻿// Interface of the game opened by one person (GAME.ui): start screen, pause, benchmark, scripted lap to watch,
 // poses, tool keys and controller reading. In the work/ tools (capture, poses, test, measurement) none
 // of this is enabled: no menu, no dashboard, no sound.
 const ST = { INICIO: 0, JOGO: 1, PAUSA: 2, BENCH: 3, FITA: 4, RESULT: 5, POSE: 6 };
@@ -10,6 +10,19 @@ function uiInit() {
   try { const b = +localStorage.getItem('uno-melhor'); if (b > 20 && b < 600) LAP[2] = b; } catch (e) { /* no local storage: the best lap is only valid for this session */ }
   UI.b0.onclick = () => { if (UI.st === ST.INICIO) { sndStart(); uiSet(ST.JOGO); } else uiResume(); };
   UI.b1.onclick = () => benchStart();
+  const cs = $('car');
+  if (cs) {
+    cs.value = CAR ? CAR.id : 'uno';
+    cs.onchange = () => {
+      try { localStorage.setItem('uno-car', cs.value); } catch (e) { /* no local storage: use ?car= */ }
+      const url = new URL(location.href); url.searchParams.set('car', cs.value); location.href = url.href;
+    };
+  }
+  const title = $('title'), sub = $('subtitle');
+  if (title && sub && typeof CAR !== 'undefined' && CAR) {
+    title.textContent = CAR.id === 'uno' ? 'Uno with Ladder' : CAR.label;
+    sub.textContent = (CAR.id === 'uno' ? 'Fiat Uno Mille EP 1996' : CAR.label) + ' ┬À race track';
+  }
   const qs = $('quality');
   if (qs) {
     qs.value = QUALITY_KEY;
@@ -31,7 +44,7 @@ function uiSet(st) {
   UI.b0.textContent = st === ST.INICIO ? 'Start' : st === ST.RESULT ? 'Back to driving' : 'Continue';
   UI.b1.style.display = st === ST.INICIO ? 'none' : ''; UI.b1.textContent = st === ST.RESULT ? 'Repeat benchmark' : 'Benchmark';
   UI.res.style.display = st === ST.RESULT ? 'block' : 'none';
-  UI.tag.textContent = st === ST.BENCH ? 'Benchmark: 60 s scripted lap · Esc cancels' : st === ST.FITA ? 'Scripted lap · R takes the wheel · Esc menu' : st === ST.POSE ? 'Pose ' + (UI.pose + 1) + ' · ' + POSES[UI.pose].nome + ' · 1 to 6 switch · Esc back to driving' : '';
+  UI.tag.textContent = st === ST.BENCH ? 'Benchmark: 60 s scripted lap ┬À Esc cancels' : st === ST.FITA ? 'Scripted lap ┬À R takes the wheel ┬À Esc menu' : st === ST.POSE ? 'Pose ' + (UI.pose + 1) + ' ┬À ' + POSES[UI.pose].nome + ' ┬À 1 to 6 switch ┬À Esc back to driving' : '';
   UI.tag.style.display = UI.tag.textContent ? 'block' : 'none';
   hudShow(st === ST.JOGO || st === ST.FITA || (st === ST.PAUSA && UI.back !== ST.BENCH));
   sndRun(st === ST.JOGO || st === ST.FITA || st === ST.BENCH);
@@ -61,7 +74,7 @@ function uiKey(e) {
 // ---- benchmark: the 60 s scripted lap in real time, without dashboard, measuring frame time and (if available) GPU time
 function benchStart() {
   if (!GS.replay || UI.st === ST.INICIO) return;
-  GS.frozen = false; GS.freeCam = false; GS.replayOn = true; gameRestart(); UI.bench = null; UI.benchN++; UI.res.innerHTML = '<h2>Benchmark · calculating…</h2>';
+  GS.frozen = false; GS.freeCam = false; GS.replayOn = true; gameRestart(); UI.bench = null; UI.benchN++; UI.res.innerHTML = '<h2>Benchmark ┬À calculatingÔÇª</h2>';
   perfAttach(true, 1); perfStart(); uiSet(ST.BENCH);
 }
 function benchStop() { PERF.rec = false; perfAttach(UI.stats, 12); GS.replayOn = false; }
@@ -72,10 +85,10 @@ function benchEnd() {
     const r = perfReport(), stat = a => { a = a.slice(5).filter(x => x > 0).sort((p, q) => p - q); const n = a.length; return n ? { n, media: a.reduce((p, q) => p + q, 0) / n, p99: a[Math.min(n - 1, Math.round(0.99 * (n - 1)))], max: a[n - 1], acima: a.filter(x => Math.round(x * 10) > 167).length } : null; };   // acima: frames that exceeded 16.7 ms (at the clock's 0.1 ms resolution)
     const q = stat(r.raf), g = PERF.qs ? stat(r.gpu) : null, f = x => x.toFixed(2);
     benchStop(); gameRestart();
-    UI.bench = { quadros: r.n, quadro_ms: q, gpu_ms: g, fps: q ? 1000 / q.media : 0, acima_16_7: q ? q.acima : 0, gpu_acima_16_7: g ? g.acima : null, tick: 3600, resolucao: G.W + '×' + G.H };
+    UI.bench = { quadros: r.n, quadro_ms: q, gpu_ms: g, fps: q ? 1000 / q.media : 0, acima_16_7: q ? q.acima : 0, gpu_acima_16_7: g ? g.acima : null, tick: 3600, resolucao: G.W + '├ù' + G.H };
     const row = (n, s) => '<tr><th>' + n + '</th>' + (s ? '<td>' + f(s.media) + '</td><td>' + f(s.p99) + '</td><td>' + f(s.max) + '</td>' : '<td colspan=3>unavailable in this browser</td>') + '</tr>';
-    UI.res.innerHTML = '<h2>Benchmark · 60 s scripted lap · ' + G.W + '×' + G.H + '</h2><table><tr><th></th><th>average (ms)</th><th>99th percentile (ms)</th><th>maximum (ms)</th></tr>' + row('Frame time', q) + row('GPU time', g) + '</table>' +
-      '<p>' + (q ? q.acima + ' of ' + q.n + ' frames exceeded 16.7 ms of interval' + (g ? ' · ' + g.acima + ' exceeded 16.7 ms of GPU time' : '') + ' · ' + f(1000 / q.media) + ' frames per second' : '') + '</p>';
+    UI.res.innerHTML = '<h2>Benchmark ┬À 60 s scripted lap ┬À ' + G.W + '├ù' + G.H + '</h2><table><tr><th></th><th>average (ms)</th><th>99th percentile (ms)</th><th>maximum (ms)</th></tr>' + row('Frame time', q) + row('GPU time', g) + '</table>' +
+      '<p>' + (q ? q.acima + ' of ' + q.n + ' frames exceeded 16.7 ms of interval' + (g ? ' ┬À ' + g.acima + ' exceeded 16.7 ms of GPU time' : '') + ' ┬À ' + f(1000 / q.media) + ' frames per second' : '') + '</p>';
   }, 400);
 }
 // ---- controller (Gamepad API, standard layout). It is only polled while a controller is connected.
@@ -110,7 +123,7 @@ function padMenu(edge) {
   else if (UI.st === ST.FITA) uiDrive();
 }
 // Warms up the JIT of the new functions that run once per frame (controller, dashboard, statistics): they are cheap, and without this V8
-// would take tens of seconds of gameplay to optimize them — running in the interpreter until then, which allocates on every operation.
+// would take tens of seconds of gameplay to optimize them ÔÇö running in the interpreter until then, which allocates on every operation.
 // (The part of the sound that reads the simulation, sndControl, is warmed up along with the physics in gameWarmup.)
 function uiWarmup() {
   const H = HUD, g = H.g, t = H.t, s = H.s, sc = document.createElement('canvas'); sc.width = sc.height = 4; const x = sc.getContext('2d'), V = H.V, rt3 = RT[3];

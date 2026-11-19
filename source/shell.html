@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Uno with Ladder — Race Track</title>
+<title>Uno with Ladder ÔÇö Race Track</title>
 <style>
 html,body{margin:0;height:100%;background:#000;overflow:hidden;font:14px/1.4 -apple-system,Helvetica,Arial,sans-serif;color:#ddd}
 #c{position:absolute;inset:0;margin:auto;width:100vw;height:100vh;display:block;object-fit:contain}
@@ -35,18 +35,18 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font:14px/1.4 -ap
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="msg">loading…</div>
-<div id="hint">W accelerates · S brakes/reverse · A/D steers · Space handbrake · C camera · R return to track</div>
+<div id="msg">loadingÔÇª</div>
+<div id="hint">W accelerates ┬À S brakes/reverse ┬À A/D steers ┬À Space handbrake ┬À C camera ┬À R return to track</div>
 <canvas id="hg"></canvas><canvas id="ht"></canvas><canvas id="hs"></canvas><div id="tag"></div>
 <div id="ui"><div>
-<h1>Uno with Ladder</h1>
-<p class="sub">Fiat Uno Mille EP 1996 · race track</p>
+<h1 id="title">Uno with Ladder</h1>
+<p class="sub" id="subtitle">Fiat Uno Mille EP 1996 ┬À race track</p>
 <div id="res"></div>
 <div class="cols">
 <div><h2>Keyboard</h2><table>
-<tr><td>W or ↑</td><td>accelerate</td></tr>
-<tr><td>S or ↓</td><td>brake and reverse</td></tr>
-<tr><td>A D or ← →</td><td>steer</td></tr>
+<tr><td>W or Ôåæ</td><td>accelerate</td></tr>
+<tr><td>S or Ôåô</td><td>brake and reverse</td></tr>
+<tr><td>A D or ÔåÉ ÔåÆ</td><td>steer</td></tr>
 <tr><td>Space</td><td>handbrake</td></tr>
 <tr><td>C</td><td>change camera</td></tr>
 <tr><td>V (hold)</td><td>look back</td></tr>
@@ -69,14 +69,19 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font:14px/1.4 -ap
 <tr><td>B</td><td>benchmark (60 s scripted lap)</td></tr>
 <tr><td>F</td><td>watch the scripted lap</td></tr>
 <tr><td>1 to 6</td><td>fixed camera poses</td></tr>
-<tr><td colspan="2" style="font-weight:400;color:#ddd;opacity:.75;padding-top:.5em">Automatic transmission · the lap counts<br>when crossing the start/finish line</td></tr>
+<tr><td colspan="2" style="font-weight:400;color:#ddd;opacity:.75;padding-top:.5em">Automatic transmission ┬À the lap counts<br>when crossing the start/finish line</td></tr>
 </table></div>
 </div>
+<div class="qt"><label for="car">Car:</label>
+<select id="car">
+<option value="uno">Fiat Uno Mille EP</option>
+<option value="tesla">Tesla Model 3</option>
+</select></div>
 <div class="qt"><label for="quality">Graphics quality:</label>
 <select id="quality">
-<option value="low">Low — laptop GPU (default)</option>
+<option value="low">Low ÔÇö laptop GPU (default)</option>
 <option value="medium">Medium</option>
-<option value="high">High — desktop / M4 Max</option>
+<option value="high">High ÔÇö desktop / M4 Max</option>
 </select><span>Changes reload the page.</span></div>
 <div class="bt"><button id="b0">Start</button><button id="b1">Benchmark</button></div>
 </div></div>

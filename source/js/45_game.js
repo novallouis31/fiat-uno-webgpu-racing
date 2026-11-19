@@ -1,4 +1,4 @@
-// Game: input, fixed-step loop, replay of recorded inputs, cameras and car pose.
+﻿// Game: input, fixed-step loop, replay of recorded inputs, cameras and car pose.
 const GS = {
   held: 0, keys: 0, prevKeys: 0, cam: 0, replay: null, replayOn: false, ai: false, tick60: 0, acc: 0, sub: 0, alpha: 1, cut: true,
   body: m4(), tmp: m4(), tmp2: m4(), ground: m4(), spin: new Float32Array(4), susp: new Float32Array(4),
@@ -45,6 +45,7 @@ const CARP = {
 const carObj = () => (typeof CAR !== 'undefined' ? CAR : CARP);
 
 function gameInit() {
+  if (typeof vehicleApplyCar === 'function' && typeof CAR !== 'undefined') vehicleApplyCar(CAR.phys);
   addEventListener('keydown', onKeyDown); addEventListener('keyup', onKeyUp); addEventListener('blur', onBlur);
   if (typeof REPLAY_B64 !== 'undefined') {
     const bin = atob(REPLAY_B64); let n = 0; for (let i = 1; i < bin.length; i += 2) n += bin.charCodeAt(i);
@@ -74,8 +75,8 @@ function gameInit() {
   gameWarmup();
   gameRestart();
 }
-// Warm up the JIT before the game starts: run the simulation (autopilot + varied keys) through every branch —
-// three cameras, reverse, handbrake, off-track, reset — so V8 optimizes the loop with full type information.
+// Warm up the JIT before the game starts: run the simulation (autopilot + varied keys) through every branch ÔÇö
+// three cameras, reverse, handbrake, off-track, reset ÔÇö so V8 optimizes the loop with full type information.
 // Without this, the first camera change or first reverse would deoptimize loop functions and create temporary garbage.
 function gameWarmup() {
   const fx = GS.fxOn, rp = GS.replayOn; GS.replayOn = false; GS.ai = false; RT[2] = 1 / 120;
@@ -206,7 +207,7 @@ function gamePose() {
   const bp = objParams(C.slotBody), k = GS.keys; bp[0] = ((k & K_S) && V.gear !== 0) || ((k & K_W) && V.gear === 0) ? 1 : 0; bp[1] = V.gear === 0 ? 1 : 0; bp[2] = 1;
   for (let i = 0; i < 4; i++) { const w = V.omega[i]; objParams(C.slotWheel[i])[0] = w < 0 ? -w : w; }
   FR.data.set(B, FO.carMat); m4inv(T, B); FR.data.set(T, FO.carInv);
-  // wheels: the previous matrix becomes the current wheel carried by the rigid motion of the body (previous × current⁻¹).
+  // wheels: the previous matrix becomes the current wheel carried by the rigid motion of the body (previous ├ù currentÔü╗┬╣).
   // This keeps motion blur from smearing the tire across the asphalt due to spinning; rotation is shown by the material.
   if (C.slotWheel[0] !== C.slotBody) { const D2 = GS.tmp2; m4mul(D2, objPrev(C.slotBody), T); for (let i = 0; i < 4; i++) m4mul(objPrev(C.slotWheel[i]), D2, objModel(C.slotWheel[i])); }
   const f = FR.data, o = FO.car; f[o] = bp[0]; f[o + 1] = GS.speed; f[o + 2] = GS.steer; f[o + 3] = 0;

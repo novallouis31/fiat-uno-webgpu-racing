@@ -2,7 +2,7 @@
 
 An English port of the **Fable** build of [Uno com escada](https://github.com/viktorkav/uno-com-escada) by ViktorKav: a 1996 Fiat Uno Mille EP with an aluminium ladder strapped to the roof, racing on a hill-circuit directly in the browser.
 
-Everything — car, track, forest, sky and sound — is generated from code. No textures, 3D models, recorded audio, game engine or 3D library. A single self-contained `index.html`, no network needed.
+The track, forest, sky and sound are generated from code. The Fiat Uno is fully procedural; the Tesla Model 3 is a converted CC/MIT 3D model with baked vertex colours (see CREDITS.md). No runtime 3D library or network needed: a single self-contained `index.html`.
 
 > Original project and license: [viktorkav/uno-com-escada](https://github.com/viktorkav/uno-com-escada), [PolyForm Noncommercial 1.0.0](LICENSE.md). Free to use, study, modify and share for non-commercial purposes. This fork translates the interface, comments and documentation into English and adds adjustable performance presets; all credit for the original work goes to its author.
 
@@ -37,7 +37,7 @@ The gearbox is automatic. A lap counts when the car crosses the start/finish lin
 
 ## Graphics quality
 
-The start menu has a **Graphics quality** selector. Changing it saves the choice in `localStorage` and reloads the page. You can also force a preset with `?quality=low|medium|high`.
+The start menu has a **Car** selector (Fiat Uno Mille EP / Tesla Model 3) and a **Graphics quality** selector. Changing either saves the choice in `localStorage` and reloads the page. You can also force them with `?car=uno|tesla` and `?quality=low|medium|high`. The Tesla uses its own handling profile; the scripted lap, cameras, sound and benchmark work with both cars.
 
 | | Low (default) | Medium | High |
 | --- | --- | --- | --- |

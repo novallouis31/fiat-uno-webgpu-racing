@@ -1,4 +1,4 @@
-// Vehicle physics (no library): flat 4-wheel model with load transfer, friction ellipse,
+﻿// Vehicle physics (no library): flat 4-wheel model with load transfer, friction ellipse,
 // front-wheel drive, automatic transmission, handbrake, track relief/bank and barrier collisions.
 // Fixed step of 1/120 s. No allocations during the simulation.
 const PHYS_DT = 1 / 120;
@@ -12,6 +12,8 @@ const VP = {
   gears: [3.91, 2.16, 1.48, 1.12, 0.9], final: 4.07, rev: 3.9, eff: 0.9,
   cdA: 0.62, crr: 0.014, brakeF: 0.64, halfW: 0.78, front: 1.92, rear: 1.72,
 };
+// Per-car engine multiplier (set by vehicleApplyCar for the extra models).
+const VTUNE = { torque: 1 };
 const VEH = {
   x: 0, z: 0, yaw: 0, vx: 0, vy: 0, r: 0,                  // CG position in the plane, heading, body-frame velocities (forward, right), yaw
   steer: 0, rpm: 900, gear: 1, throttle: 0, brake: 0, hand: 0,
@@ -30,8 +32,18 @@ const _vl = new Float64Array(4), _vp = new Float64Array(5);
 // local wheel positions (x forward, z right): FL, FR, RL, RR
 const WLX = [VP.a, VP.a, -VP.b, -VP.b], WLZ = [-VP.tw / 2, VP.tw / 2, -VP.tw / 2, VP.tw / 2];
 
-function engineTorque(rpm) { // torque curve (N·m): a much livelier Mille than the stock one
-  const x = rpm / 1000; const t = 180 + 118 * Math.sin(clamp((x - 0.6) / 5.4, 0, 1) * PI) - Math.max(0, x - 6.0) * 110;
+// Applies a car's physics profile and refreshes the derived wheel coordinates.
+// Called at build time and again from gameInit(), so it is safe in both orders.
+function vehicleApplyCar(phys) {
+  if (!phys) { VTUNE.torque = 1; return; }
+  Object.assign(VP, phys);
+  WLX[0] = VP.a; WLX[1] = VP.a; WLX[2] = -VP.b; WLX[3] = -VP.b;
+  WLZ[0] = -VP.tw / 2; WLZ[1] = VP.tw / 2; WLZ[2] = -VP.tw / 2; WLZ[3] = VP.tw / 2;
+  VTUNE.torque = phys.torque || 1;
+}
+
+function engineTorque(rpm) { // torque curve (N┬Àm), scaled by the selected car
+  const x = rpm / 1000; const t = (180 + 118 * Math.sin(clamp((x - 0.6) / 5.4, 0, 1) * PI)) * VTUNE.torque - Math.max(0, x - 6.0) * 110;
   return Math.max(0, t);
 }
 // ground query without numbers via argument/return: input _gq[0]=x, _gq[1]=z; output _gq[8]=height; returns the zone (integer).
@@ -87,7 +99,7 @@ function vehicleStep(keys) {
   const V = VEH, P = VP, dt = PHYS_DT, g = 9.81;
   vehicleSavePrev();
   // (keys also pass through VIN: this way thr, brk and sIn are always floating-point numbers read from a typed array, and
-  // V8's intermediate compiler doesn't have to box the mix of integers and fractions — the values are the same 0 and 1)
+  // V8's intermediate compiler doesn't have to box the mix of integers and fractions ÔÇö the values are the same 0 and 1)
   if (!(keys & K_PAD)) { VIN[0] = (keys & K_W) ? 1 : 0; VIN[1] = (keys & K_S) ? 1 : 0; }
   const thr = VIN[0], brk = VIN[1], hand = (keys & K_SPACE) ? 1 : 0;
   const speed = Math.sqrt(V.vx * V.vx + V.vy * V.vy);
@@ -114,7 +126,7 @@ function vehicleStep(keys) {
   }
   const rpmE = Math.min(6700, Math.max(900, Math.max(rpm, 1100 + throttle * 1900 * Math.min(1, Math.max(0, 1 - speed / 6)))));   // clutch slipping on launch
   V.rpm += (rpmE - V.rpm) * 0.25;
-  const ex = rpmE / 1000, ek = (ex - 0.6) / 5.4, eT = 180 + 118 * Math.sin((ek < 0 ? 0 : ek > 1 ? 1 : ek) * PI) - (ex > 6 ? (ex - 6) * 110 : 0);   // = engineTorque(rpmE), inlined
+  const ex = rpmE / 1000, ek = (ex - 0.6) / 5.4, eT = (180 + 118 * Math.sin((ek < 0 ? 0 : ek > 1 ? 1 : ek) * PI)) * VTUNE.torque - (ex > 6 ? (ex - 6) * 110 : 0);   // = engineTorque(rpmE), inlined
   let Tdrive = throttle * (eT > 0 ? eT : 0) * ratio * P.eff;                  // total torque at the front wheels
   if (rpm > 6500) Tdrive = 0;
   if (reverse && V.vx < -11) Tdrive = 0;
